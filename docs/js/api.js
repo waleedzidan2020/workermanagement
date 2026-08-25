@@ -19,7 +19,8 @@ async function ensureAntiforgeryToken(loginPage = false) {
 
 async function apiRequest(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
-  const isAdminWrite = path.startsWith('/api/admin/') && ['POST','PUT','PATCH','DELETE'].includes(method);
+  const isAdmin = path.startsWith('/api/admin/');
+  const isAdminWrite = isAdmin && ['POST','PUT','PATCH','DELETE'].includes(method);
   const isLogin = path === '/api/admin/auth/login';
   const headers = { ...(options.headers || {}) };
   if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
@@ -31,7 +32,7 @@ async function apiRequest(path, options = {}) {
 
   const response = await fetch(API_BASE_URL + path, {
     mode: 'cors',
-    credentials: 'include',
+    credentials: isAdmin ? 'include' : 'omit',
     ...options,
     headers
   });
@@ -39,7 +40,7 @@ async function apiRequest(path, options = {}) {
   let result = null;
   try { result = await response.json(); } catch (_) {}
 
-  if (response.status === 401 && path.startsWith('/api/admin/') && !isLogin) {
+  if (response.status === 401 && isAdmin && !isLogin) {
     window.location.href = 'login.html';
     throw { status: 401, data: result };
   }
@@ -50,7 +51,7 @@ async function apiRequest(path, options = {}) {
 }
 
 function esc(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  return String(value ?? '').replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
 }
 function localTime(value) {
   return value ? new Date(value).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) : '--';
