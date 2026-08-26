@@ -1,8 +1,20 @@
+function getEgyptDateString(){
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Africa/Cairo',
+    year:'numeric',
+    month:'2-digit',
+    day:'2-digit'
+  }).formatToParts(new Date());
+  const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 async function loadDashboard(){
   try{
+    const today=getEgyptDateString();
     const [dash,att]=await Promise.all([
       apiRequest('/api/admin/dashboard'),
-      apiRequest('/api/admin/attendance?page=1&pageSize=10')
+      apiRequest(`/api/admin/attendance?date=${encodeURIComponent(today)}&page=1&pageSize=10`)
     ]);
 
     const d=dash.data||{};
