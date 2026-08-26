@@ -1,5 +1,6 @@
 name: Deploy GitHub Pages
 
+# Redeploy trigger
 on:
   push:
     branches: ["main"]
