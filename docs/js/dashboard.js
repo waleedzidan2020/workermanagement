@@ -43,7 +43,7 @@ cleanupTodayBtn?.addEventListener('click',async()=>{
   cleanupMessage.innerHTML='';
 
   try{
-    const response=await apiRequest('/api/admin/cleanup/today',{method:'DELETE'});
+    const response=await apiRequest('/api/admin/cleanup/today',{method:'POST'});
     const data=response.data||{};
     cleanupMessage.innerHTML=`<div class="alert alert-success">تم حذف بيانات اليوم بنجاح. تم حذف ${data.deletedAttendance??0} سجل حضور و${data.deletedRejectedAttempts??0} محاولات مرفوضة.</div>`;
     await loadDashboard();
