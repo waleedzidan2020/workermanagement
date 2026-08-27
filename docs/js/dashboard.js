@@ -9,6 +9,11 @@ function getEgyptDateString(){
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function formatDateForArabic(dateString){
+  const [year,month,day]=dateString.split('-');
+  return `${day}/${month}/${year}`;
+}
+
 async function loadDashboard(){
   try{
     const today=getEgyptDateString();
@@ -42,30 +47,56 @@ async function loadDashboard(){
   }
 }
 
-const cleanupTodayBtn=document.getElementById('cleanupTodayBtn');
+const cleanupDate=document.getElementById('cleanupDate');
+const cleanupByDateBtn=document.getElementById('cleanupByDateBtn');
 const cleanupMessage=document.getElementById('cleanupMessage');
 
-cleanupTodayBtn?.addEventListener('click',async()=>{
-  const confirmed=window.confirm('هل أنت متأكد من حذف بيانات الحضور والمحاولات المرفوضة الخاصة باليوم؟ هذا الإجراء لا يمكن التراجع عنه.');
+if(cleanupDate&&!cleanupDate.value){
+  cleanupDate.value=getEgyptDateString();
+}
+
+cleanupByDateBtn?.addEventListener('click',async()=>{
+  const selectedDate=cleanupDate?.value;
+
+  if(!selectedDate){
+    cleanupMessage.innerHTML='<div class="alert alert-warning">من فضلك اختر التاريخ المراد مسح بياناته.</div>';
+    return;
+  }
+
+  const displayDate=formatDateForArabic(selectedDate);
+  const confirmed=window.confirm(`هل أنت متأكد من حذف سجلات الحضور والمحاولات المرفوضة ليوم ${displayDate}؟\nهذا الإجراء لا يمكن التراجع عنه.`);
   if(!confirmed)return;
 
-  const originalText=cleanupTodayBtn.textContent;
-  cleanupTodayBtn.disabled=true;
-  cleanupTodayBtn.textContent='جاري الحذف...';
+  const originalText=cleanupByDateBtn.textContent;
+  cleanupByDateBtn.disabled=true;
+  cleanupByDateBtn.textContent='جاري الحذف...';
   cleanupMessage.innerHTML='';
 
   try{
-    const response=await apiRequest('/api/admin/cleanup/today',{method:'POST'});
+    const response=await apiRequest('/api/admin/cleanup/by-date',{
+      method:'POST',
+      body:JSON.stringify({date:selectedDate})
+    });
     const data=response.data||{};
-    cleanupMessage.innerHTML=`<div class="alert alert-success">تم حذف بيانات اليوم بنجاح. تم حذف ${data.deletedAttendance??0} سجل حضور و${data.deletedRejectedAttempts??0} محاولات مرفوضة.</div>`;
-    await loadDashboard();
+    const deletedAttendance=data.deletedAttendance??0;
+    const deletedRejectedAttempts=data.deletedRejectedAttempts??0;
+
+    if(deletedAttendance===0&&deletedRejectedAttempts===0){
+      cleanupMessage.innerHTML=`<div class="alert alert-info">لا توجد بيانات للحذف في تاريخ ${esc(displayDate)}.</div>`;
+    }else{
+      cleanupMessage.innerHTML=`<div class="alert alert-success">تم حذف بيانات ${esc(displayDate)} بنجاح. تم حذف ${deletedAttendance} سجل حضور و${deletedRejectedAttempts} محاولات مرفوضة.</div>`;
+    }
+
+    if(selectedDate===getEgyptDateString()){
+      await loadDashboard();
+    }
   }catch(e){
     if(e?.status===401)return;
-    const message=e?.data?.message||'تعذر حذف بيانات اليوم. حاول مرة أخرى.';
+    const message=e?.data?.message||'تعذر حذف بيانات التاريخ المحدد. حاول مرة أخرى.';
     cleanupMessage.innerHTML=`<div class="alert alert-danger">${esc(message)}</div>`;
   }finally{
-    cleanupTodayBtn.disabled=false;
-    cleanupTodayBtn.textContent=originalText;
+    cleanupByDateBtn.disabled=false;
+    cleanupByDateBtn.textContent=originalText;
   }
 });
 
