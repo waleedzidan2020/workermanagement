@@ -88,9 +88,8 @@ actionBtn.addEventListener('click',async()=>{
  const code=codeEl.value.trim();
  if(!code){showMessage('<div class="alert alert-warning">أدخل كود العامل أولًا.</div>');return;}
  localStorage.setItem('employeeCode',code); actionBtn.disabled=true;
- const originalText=actionBtn.textContent;
  try{
-   const attemptType=state.isCheckedIn?'CheckOut':'CheckIn';
+   const attemptType=state.isCheckedIn?2:1;
    actionBtn.textContent='جاري التحقق...';
    const attendanceAuthorization=await getAttendanceAuthorization(code,attemptType);
 
