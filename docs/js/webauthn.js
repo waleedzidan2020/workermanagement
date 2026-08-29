@@ -38,10 +38,10 @@ function serializeRegistrationCredential(credential){
     type:credential.type,
     response:{
       attestationObject:arrayBufferToBase64Url(credential.response.attestationObject),
-      clientDataJson:arrayBufferToBase64Url(credential.response.clientDataJSON),
+      clientDataJSON:arrayBufferToBase64Url(credential.response.clientDataJSON),
       transports:credential.response.getTransports?credential.response.getTransports():[]
     },
-    extensions:credential.getClientExtensionResults?credential.getClientExtensionResults():{}
+    clientExtensionResults:credential.getClientExtensionResults?credential.getClientExtensionResults():{}
   };
 }
 
@@ -52,11 +52,11 @@ function serializeAssertionCredential(credential){
     type:credential.type,
     response:{
       authenticatorData:arrayBufferToBase64Url(credential.response.authenticatorData),
-      clientDataJson:arrayBufferToBase64Url(credential.response.clientDataJSON),
+      clientDataJSON:arrayBufferToBase64Url(credential.response.clientDataJSON),
       signature:arrayBufferToBase64Url(credential.response.signature),
       userHandle:credential.response.userHandle?arrayBufferToBase64Url(credential.response.userHandle):null
     },
-    extensions:credential.getClientExtensionResults?credential.getClientExtensionResults():{}
+    clientExtensionResults:credential.getClientExtensionResults?credential.getClientExtensionResults():{}
   };
 }
 
