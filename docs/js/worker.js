@@ -46,22 +46,70 @@ function mapError(d){
  if(c==='POOR_LOCATION_ACCURACY')return '⚠️ دقة الموقع غير كافية. فعّل GPS وانتظر قليلًا ثم حاول مجددًا.';
  if(c==='EMPLOYEE_NOT_FOUND')return '❌ كود العامل غير صحيح.';
  if(c==='EMPLOYEE_INACTIVE')return '❌ الحساب غير مفعل. راجع المسؤول.';
+ if(c==='DEVICE_NOT_REGISTERED')return '❌ هذا العامل لم يتم تسجيل جهاز له بعد. يرجى التواصل مع المسؤول.';
+ if(c==='WEBAUTHN_VERIFICATION_FAILED'||c==='INVALID_DEVICE_CREDENTIAL')return '❌ تعذر التحقق من الجهاز المسجل لهذا العامل.';
+ if(c==='EXPIRED_AUTHENTICATION_CHALLENGE')return '⚠️ انتهت صلاحية طلب التحقق. حاول مرة أخرى.';
+ if(c==='INVALID_AUTHENTICATION_CHALLENGE')return '⚠️ طلب التحقق غير صالح أو تم استخدامه من قبل.';
+ if(c==='DEVICE_VERIFICATION_REQUIRED')return '❌ يجب التحقق من الجهاز قبل تسجيل الحضور.';
  return 'حدث خطأ أثناء تنفيذ العملية. يرجى المحاولة مرة أخرى.';
+}
+
+async function getAttendanceAuthorization(code,attemptType){
+ const optionsResponse=await apiRequest('/api/device-verification/authentication/options',{
+   method:'POST',body:JSON.stringify({employeeCode:code,attemptType})
+ });
+ const data=optionsResponse.data||{};
+ if(!data.required)return null;
+ if(!webAuthnSupported())throw {data:{errorCode:'WEBAUTHN_UNSUPPORTED'}};
+
+ const publicKey=prepareAssertionOptions(data.options);
+ let credential;
+ try{
+   credential=await navigator.credentials.get({publicKey});
+ }catch(e){
+   if(e?.name==='NotAllowedError')throw {data:{errorCode:'WEBAUTHN_CANCELLED'}};
+   throw e;
+ }
+ if(!credential)throw {data:{errorCode:'WEBAUTHN_VERIFICATION_FAILED'}};
+
+ const complete=await apiRequest('/api/device-verification/authentication/complete',{
+   method:'POST',
+   body:JSON.stringify({
+     employeeCode:code,
+     attemptType,
+     challengeId:data.challengeId,
+     credential:serializeAssertionCredential(credential)
+   })
+ });
+ return complete.data?.attendanceAuthorization||null;
 }
 
 actionBtn.addEventListener('click',async()=>{
  const code=codeEl.value.trim();
  if(!code){showMessage('<div class="alert alert-warning">أدخل كود العامل أولًا.</div>');return;}
  localStorage.setItem('employeeCode',code); actionBtn.disabled=true;
+ const originalText=actionBtn.textContent;
  try{
+   const attemptType=state.isCheckedIn?'CheckOut':'CheckIn';
+   actionBtn.textContent='جاري التحقق...';
+   const attendanceAuthorization=await getAttendanceAuthorization(code,attemptType);
+
+   actionBtn.textContent='جاري تحديد الموقع...';
    const loc=await getFreshLocation();
-   const body={requestId:crypto.randomUUID(),employeeCode:code,...loc};
+   const body={requestId:crypto.randomUUID(),employeeCode:code,...loc,attendanceAuthorization};
    const endpoint=state.isCheckedIn?'/api/attendance/checkout':'/api/attendance/checkin';
    const r=await apiRequest(endpoint,{method:'POST',body:JSON.stringify(body)}); const d=r.data||{};
    result.classList.remove('d-none');
    result.innerHTML=`<div class="alert alert-success text-center"><div class="display-6 mb-2">✅</div><h2 class="h4">${state.isCheckedIn?'تم تسجيل الانصراف':'تم تسجيل حضورك'}</h2><div>${esc(d.employeeName||'')}</div><div>${esc(d.siteName||'')}</div><div class="mt-2">${state.isCheckedIn?`وقت الانصراف: ${localTime(d.checkOutTimeUtc)}`:`وقت الحضور: ${localTime(d.checkInTimeUtc)}`}</div></div>`;
    showMessage(''); await refreshStatus();
- }catch(e){showMessage(`<div class="alert alert-danger">${mapError(e.data)}</div>`);}finally{actionBtn.disabled=false;actionBtn.textContent=state.isCheckedIn?'CHECK OUT':'CHECK IN';}
+ }catch(e){
+   const code=e?.data?.errorCode;
+   let text;
+   if(code==='WEBAUTHN_UNSUPPORTED')text='❌ هذا الجهاز أو المتصفح لا يدعم التحقق الآمن المطلوب لتسجيل الحضور.';
+   else if(code==='WEBAUTHN_CANCELLED')text='تم إلغاء التحقق من الجهاز.';
+   else text=mapError(e?.data);
+   showMessage(`<div class="alert alert-danger">${text}</div>`);
+ }finally{actionBtn.disabled=false;actionBtn.textContent=state.isCheckedIn?'CHECK OUT':'CHECK IN';}
 });
 
 codeEl.addEventListener('change',refreshStatus);
