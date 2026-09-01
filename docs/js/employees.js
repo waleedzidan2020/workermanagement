@@ -19,7 +19,9 @@ async function loadEmployees(){
       <button class="btn btn-sm btn-outline-danger" onclick="disableEmployee('${x.id}')">تعطيل</button>
       ${x.hasRegisteredDevice
         ?`<button class="btn btn-sm btn-outline-warning" onclick="revokeEmployeeDevice('${x.id}')">إلغاء الجهاز</button>`
-        :`<button class="btn btn-sm btn-outline-success" onclick="startEmployeeDeviceEnrollment('${x.id}')">تسجيل جهاز</button>`}
+        :x.isActive
+          ?`<button class="btn btn-sm btn-outline-success" onclick="startEmployeeDeviceEnrollment('${x.id}')">تسجيل جهاز</button>`
+          :'<button class="btn btn-sm btn-outline-secondary" type="button" disabled title="فعّل العامل أولًا">فعّل العامل للتسجيل</button>'}
     </td></tr>`).join('');
 }
 
@@ -37,6 +39,11 @@ window.disableEmployee=async id=>{
 
 window.startEmployeeDeviceEnrollment=async id=>{
   employeeMessage.innerHTML='';
+  const employee=employees.find(x=>x.id===id);
+  if(employee&&!employee.isActive){
+    employeeMessage.innerHTML='<div class="alert alert-warning">يجب تفعيل العامل أولًا قبل إنشاء رابط تسجيل الجهاز.</div>';
+    return;
+  }
   try{
     const response=await apiRequest(`/api/admin/device-verification/employees/${id}/enrollment/start`,{method:'POST'});
     const data=response.data||{};
@@ -44,7 +51,10 @@ window.startEmployeeDeviceEnrollment=async id=>{
     deviceEnrollmentExpiry.textContent=data.expiresAtUtc?`تنتهي صلاحية الرابط: ${new Date(data.expiresAtUtc).toLocaleString('ar-EG')}`:'';
     bootstrap.Modal.getOrCreateInstance(deviceEnrollmentModal).show();
   }catch(e){
-    employeeMessage.innerHTML='<div class="alert alert-danger">تعذر إنشاء رابط تسجيل الجهاز.</div>';
+    const code=e?.data?.errorCode;
+    employeeMessage.innerHTML=code==='EMPLOYEE_INACTIVE'
+      ?'<div class="alert alert-warning">العامل غير مفعل. فعّله أولًا ثم أنشئ رابط تسجيل جديد.</div>'
+      :'<div class="alert alert-danger">تعذر إنشاء رابط تسجيل الجهاز.</div>';
   }
 };
 
@@ -53,10 +63,10 @@ window.revokeEmployeeDevice=async id=>{
   employeeMessage.innerHTML='';
   try{
     const response=await apiRequest(`/api/admin/device-verification/employees/${id}/credential/revoke`,{method:'POST'});
-    const revoked=!!response.data?.revoked;
+    const revoked=response.data?.revoked===true;
     employeeMessage.innerHTML=revoked
       ?'<div class="alert alert-success">تم إلغاء الجهاز المسجل.</div>'
-      :'<div class="alert alert-info">لا يوجد جهاز WebCrypto نشط لإلغائه.</div>';
+      :'<div class="alert alert-warning">لا يوجد جهاز WebCrypto نشط لإلغائه.</div>';
     await loadEmployees();
   }catch(e){
     employeeMessage.innerHTML='<div class="alert alert-danger">تعذر إلغاء الجهاز المسجل.</div>';
