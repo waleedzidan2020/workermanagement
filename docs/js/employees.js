@@ -52,8 +52,11 @@ window.revokeEmployeeDevice=async id=>{
   if(!confirm('هل تريد إلغاء الجهاز المسجل لهذا العامل؟ لن يستطيع استخدامه عند تفعيل التحقق من الجهاز.'))return;
   employeeMessage.innerHTML='';
   try{
-    await apiRequest(`/api/admin/device-verification/employees/${id}/credential/revoke`,{method:'POST'});
-    employeeMessage.innerHTML='<div class="alert alert-success">تم إلغاء الجهاز المسجل.</div>';
+    const response=await apiRequest(`/api/admin/device-verification/employees/${id}/credential/revoke`,{method:'POST'});
+    const revoked=!!response.data?.revoked;
+    employeeMessage.innerHTML=revoked
+      ?'<div class="alert alert-success">تم إلغاء الجهاز المسجل.</div>'
+      :'<div class="alert alert-info">لا يوجد جهاز WebCrypto نشط لإلغائه.</div>';
     await loadEmployees();
   }catch(e){
     employeeMessage.innerHTML='<div class="alert alert-danger">تعذر إلغاء الجهاز المسجل.</div>';
