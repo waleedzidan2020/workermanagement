@@ -22,14 +22,71 @@
     }
   }
 
+  function cartoUrl(coords) {
+    const subs = ['a', 'b', 'c', 'd'];
+    const sub = subs[Math.abs(coords.x + coords.y) % subs.length];
+    return `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${coords.z}/${coords.x}/${coords.y}.png`;
+  }
+
+  function esriPrimaryUrl(coords) {
+    return `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
+  }
+
+  function esriSecondaryUrl(coords) {
+    return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
+  }
+
+  const ResilientSatelliteLayer = L.TileLayer.extend({
+    createTile: function (coords, done) {
+      const tile = document.createElement('img');
+      tile.alt = '';
+      tile.setAttribute('role', 'presentation');
+
+      const sources = [
+        esriPrimaryUrl(coords),
+        esriSecondaryUrl(coords),
+        cartoUrl(coords)
+      ];
+
+      let sourceIndex = 0;
+      let finished = false;
+
+      const finish = function (error) {
+        if (finished) return;
+        finished = true;
+        done(error || null, tile);
+      };
+
+      tile.onload = function () {
+        finish(null);
+      };
+
+      tile.onerror = function () {
+        sourceIndex += 1;
+
+        if (sourceIndex < sources.length) {
+          tile.src = sources[sourceIndex];
+          return;
+        }
+
+        finish(new Error('MAP_TILE_LOAD_FAILED'));
+      };
+
+      tile.src = sources[sourceIndex];
+      return tile;
+    }
+  });
+
   function createBaseLayers() {
-    const esriStreets = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    const voyager = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
       {
-        maxZoom: 19,
-        attribution: 'Tiles &copy; Esri',
-        keepBuffer: 5,
-        updateWhenIdle: false
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        keepBuffer: 6,
+        updateWhenIdle: false,
+        updateWhenZooming: true
       }
     );
 
@@ -38,53 +95,54 @@
       {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
-        keepBuffer: 5,
-        updateWhenIdle: false
+        keepBuffer: 6,
+        updateWhenIdle: false,
+        updateWhenZooming: true
       }
     );
 
-    const satellite = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    const esriStreets = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
       {
         maxZoom: 19,
-        attribution: 'Imagery &copy; Esri',
-        keepBuffer: 5,
-        updateWhenIdle: false
+        attribution: 'Tiles &copy; Esri',
+        keepBuffer: 6,
+        updateWhenIdle: false,
+        updateWhenZooming: true
       }
     );
+
+    const satellite = new ResilientSatelliteLayer('', {
+      maxZoom: 19,
+      attribution: 'Imagery &copy; Esri; fallback &copy; OpenStreetMap contributors &copy; CARTO',
+      keepBuffer: 6,
+      updateWhenIdle: false,
+      updateWhenZooming: true
+    });
 
     const satelliteLabels = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
       {
-        maxZoom: 19,
-        attribution: 'Labels &copy; Esri',
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         pane: 'overlayPane',
-        keepBuffer: 5,
+        opacity: 0.9,
+        keepBuffer: 6,
         updateWhenIdle: false
       }
     );
 
     const satelliteWithLabels = L.layerGroup([satellite, satelliteLabels]);
 
-    const cartoVoyager = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      {
-        subdomains: 'abcd',
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        keepBuffer: 5,
-        updateWhenIdle: false
-      }
-    );
-
     return {
-      // Satellite makes the physical location visible even where street-map
-      // datasets have missing roads, buildings or place labels.
-      defaultLayer: satelliteWithLabels,
+      // Use the CDN-backed street map by default. It is more reliable for
+      // selection and avoids the checkerboard gaps seen with imagery tiles.
+      defaultLayer: voyager,
       choices: {
+        'خريطة شوارع واضحة': voyager,
         'قمر صناعي + أسماء': satelliteWithLabels,
         'شوارع Esri': esriStreets,
-        'خريطة Voyager': cartoVoyager,
         'OpenStreetMap': openStreetMap
       }
     };
@@ -97,6 +155,7 @@
 
     resizeObserver = new ResizeObserver(function () {
       if (!map) return;
+
       requestAnimationFrame(function () {
         map.invalidateSize({ pan: false, animate: false });
       });
@@ -123,7 +182,8 @@
 
     map = L.map(container, {
       zoomControl: true,
-      preferCanvas: true
+      preferCanvas: true,
+      zoomAnimation: false
     }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
     const layers = createBaseLayers();
