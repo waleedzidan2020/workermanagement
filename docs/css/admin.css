@@ -17,12 +17,10 @@ body{margin:0;background:#f5f7fb;font-family:Tahoma,Arial,sans-serif}.admin-shel
 .map-picker-status{font-size:.84rem;color:#667085}
 .site-map-frame{position:relative;border:1px solid #d0d5dd;border-radius:16px;overflow:hidden;background:#e9eef5;box-shadow:0 2px 8px rgba(16,24,40,.06)}
 #siteMap{height:min(64vh,620px);min-height:430px;width:100%;background:#eef2f6;direction:ltr}
-#siteMap .leaflet-control-container,#siteMap .leaflet-control-attribution{direction:ltr;text-align:left}
 .map-tip{position:absolute;z-index:500;right:12px;top:12px;background:rgba(17,24,39,.88);color:#fff;border-radius:999px;padding:7px 11px;font-size:.78rem;display:flex;align-items:center;gap:7px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .map-tip-dot{width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block}
 .selected-coordinates{margin-top:12px}
 .location-btn-icon{font-size:1.1rem;line-height:1}
-.leaflet-container{font-family:Tahoma,Arial,sans-serif}
 #siteModal .modal-content{border:0;border-radius:18px;overflow:hidden}
 #siteModal .modal-header,#siteModal .modal-footer{border-color:#eaecf0}
 #siteModal .modal-body{padding:20px}
@@ -38,7 +36,11 @@ body{margin:0;background:#f5f7fb;font-family:Tahoma,Arial,sans-serif}.admin-shel
   #siteModal .modal-body,.map-picker-body{padding:14px}
 }
 
-#siteMap .leaflet-control-layers{direction:rtl;text-align:right;border:0;border-radius:10px;box-shadow:0 4px 14px rgba(16,24,40,.14)}
-#siteMap .leaflet-control-layers-expanded{padding:8px 10px}
-#siteMap .leaflet-control-scale-line{direction:ltr}
-#siteMap .leaflet-tile-container img{will-change:transform}
+
+#siteMap .maplibregl-canvas{outline:none}
+#siteMap .maplibregl-ctrl-top-left{direction:ltr}
+#siteMap .maplibregl-ctrl-bottom-left{direction:ltr}
+#siteMap .maplibregl-ctrl-group{border-radius:10px;overflow:hidden;box-shadow:0 4px 14px rgba(16,24,40,.14)}
+#siteMap .maplibregl-ctrl-attrib{font-size:10px}
+#siteMap .maplibregl-marker{cursor:grab}
+#siteMap .maplibregl-marker:active{cursor:grabbing}
