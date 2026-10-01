@@ -66,12 +66,26 @@
 
     const satelliteWithLabels = L.layerGroup([satellite, satelliteLabels]);
 
+    const cartoVoyager = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        keepBuffer: 5,
+        updateWhenIdle: false
+      }
+    );
+
     return {
-      defaultLayer: esriStreets,
+      // Satellite makes the physical location visible even where street-map
+      // datasets have missing roads, buildings or place labels.
+      defaultLayer: satelliteWithLabels,
       choices: {
-        'شوارع وتفاصيل': esriStreets,
-        'OpenStreetMap': openStreetMap,
-        'قمر صناعي': satelliteWithLabels
+        'قمر صناعي + أسماء': satelliteWithLabels,
+        'شوارع Esri': esriStreets,
+        'خريطة Voyager': cartoVoyager,
+        'OpenStreetMap': openStreetMap
       }
     };
   }
