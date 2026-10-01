@@ -1,41 +1,82 @@
 let sites = [];
-let pendingMapSelection = null;
+let selectedSiteLocation = null;
+let mapDraftSelection = null;
+let returnToSiteModal = false;
 
 const siteModalElement = document.getElementById('siteModal');
+const mapPickerModalElement = document.getElementById('mapPickerModal');
+const siteModal = bootstrap.Modal.getOrCreateInstance(siteModalElement);
+const mapPickerModal = bootstrap.Modal.getOrCreateInstance(mapPickerModalElement);
+
 const mapError = document.getElementById('siteMapError');
+const siteLocationValidation = document.getElementById('siteLocationValidation');
 const selectedLatText = document.getElementById('selectedLatText');
 const selectedLngText = document.getElementById('selectedLngText');
+const mapSelectedLatText = document.getElementById('mapSelectedLatText');
+const mapSelectedLngText = document.getElementById('mapSelectedLngText');
+const openMapPickerText = document.getElementById('openMapPickerText');
+
+function cloneSelection(selection) {
+  return selection ? {
+    latitude: Number(selection.latitude),
+    longitude: Number(selection.longitude)
+  } : null;
+}
 
 function showMapMessage(message, type = 'danger') {
-  if (!mapError) {
-    alert(message);
-    return;
-  }
-
-  mapError.className = `alert alert-${type} py-2 mb-3`;
+  mapError.className = `alert alert-${type} py-2 mt-3 mb-0`;
   mapError.textContent = message;
   mapError.classList.remove('d-none');
 }
 
 function clearMapMessage() {
-  mapError?.classList.add('d-none');
+  mapError.classList.add('d-none');
 }
 
-function updateCoordinateDisplay(selection) {
-  selectedLatText.textContent = selection ? selection.latitude.toFixed(7) : '--';
-  selectedLngText.textContent = selection ? selection.longitude.toFixed(7) : '--';
+function showSiteLocationValidation(message) {
+  siteLocationValidation.textContent = message;
+  siteLocationValidation.classList.remove('d-none');
 }
 
-function initializeMapForModal() {
+function clearSiteLocationValidation() {
+  siteLocationValidation.classList.add('d-none');
+}
+
+function updateSiteLocationSummary() {
+  const hasLocation = !!selectedSiteLocation;
+
+  selectedLatText.textContent = hasLocation
+    ? selectedSiteLocation.latitude.toFixed(7)
+    : '--';
+
+  selectedLngText.textContent = hasLocation
+    ? selectedSiteLocation.longitude.toFixed(7)
+    : '--';
+
+  openMapPickerText.textContent = hasLocation
+    ? 'تعديل الموقع على الخريطة'
+    : 'تحديد الموقع على الخريطة';
+
+  if (hasLocation) {
+    clearSiteLocationValidation();
+  }
+}
+
+function updateMapDraftDisplay(selection) {
+  mapSelectedLatText.textContent = selection ? selection.latitude.toFixed(7) : '--';
+  mapSelectedLngText.textContent = selection ? selection.longitude.toFixed(7) : '--';
+}
+
+function initializeMapPicker() {
   clearMapMessage();
 
   try {
-    SiteMapPicker.ensureMap('siteMap', updateCoordinateDisplay);
+    SiteMapPicker.ensureMap('siteMap', updateMapDraftDisplay);
 
-    if (pendingMapSelection) {
+    if (mapDraftSelection) {
       SiteMapPicker.setSelection(
-        pendingMapSelection.latitude,
-        pendingMapSelection.longitude,
+        mapDraftSelection.latitude,
+        mapDraftSelection.longitude,
         true
       );
     } else {
@@ -47,6 +88,18 @@ function initializeMapForModal() {
     console.error(error);
     showMapMessage('تعذر تحميل الخريطة. تحقق من اتصال الإنترنت ثم أعد المحاولة.');
   }
+}
+
+function openMapPicker() {
+  mapDraftSelection = cloneSelection(selectedSiteLocation);
+  returnToSiteModal = true;
+  clearMapMessage();
+
+  siteModalElement.addEventListener('hidden.bs.modal', () => {
+    mapPickerModal.show();
+  }, { once: true });
+
+  siteModal.hide();
 }
 
 async function loadSites() {
@@ -85,12 +138,13 @@ window.editSite = id => {
   siteAccuracy.value = x.maxAllowedAccuracyMeters;
   siteActive.checked = x.isActive;
 
-  pendingMapSelection = {
+  selectedSiteLocation = {
     latitude: Number(x.latitude),
     longitude: Number(x.longitude)
   };
 
-  bootstrap.Modal.getOrCreateInstance(siteModalElement).show();
+  updateSiteLocationSummary();
+  siteModal.show();
 };
 
 window.disableSite = async id => {
@@ -112,18 +166,29 @@ addSiteBtn.onclick = () => {
   siteRadius.value = 100;
   siteAccuracy.value = 50;
   siteActive.checked = true;
-  pendingMapSelection = null;
-  clearMapMessage();
-  updateCoordinateDisplay(null);
+
+  selectedSiteLocation = null;
+  mapDraftSelection = null;
+  clearSiteLocationValidation();
+  updateSiteLocationSummary();
 };
 
-siteModalElement.addEventListener('shown.bs.modal', initializeMapForModal);
+document.getElementById('openMapPickerBtn').onclick = openMapPicker;
+
+mapPickerModalElement.addEventListener('shown.bs.modal', initializeMapPicker);
+
+mapPickerModalElement.addEventListener('hidden.bs.modal', () => {
+  if (!returnToSiteModal) return;
+
+  returnToSiteModal = false;
+  siteModal.show();
+});
 
 document.getElementById('useCurrentLocationBtn').onclick = () => {
   clearMapMessage();
 
   try {
-    SiteMapPicker.ensureMap('siteMap', updateCoordinateDisplay);
+    SiteMapPicker.ensureMap('siteMap', updateMapDraftDisplay);
     SiteMapPicker.useCurrentLocation(
       () => showMapMessage('تم تحديد موقعك الحالي على الخريطة.', 'success'),
       errorCode => {
@@ -134,6 +199,7 @@ document.getElementById('useCurrentLocationBtn').onclick = () => {
             : errorCode === 'UNSUPPORTED'
               ? 'المتصفح الحالي لا يدعم تحديد الموقع.'
               : 'تعذر الحصول على موقعك الحالي.';
+
         showMapMessage(message);
       }
     );
@@ -143,28 +209,47 @@ document.getElementById('useCurrentLocationBtn').onclick = () => {
   }
 };
 
-saveSiteBtn.onclick = async () => {
-  clearMapMessage();
-
-  const id = siteId.value;
-  const name = siteName.value.trim();
-  const radius = Number(siteRadius.value);
-  const accuracy = Number(siteAccuracy.value);
+document.getElementById('confirmMapSelectionBtn').onclick = () => {
   const selection = SiteMapPicker.getSelection();
-
-  if (!name) {
-    alert('من فضلك أدخل اسم الموقع.');
-    return;
-  }
 
   if (!selection) {
     showMapMessage('من فضلك حدد موقع العمل على الخريطة أولاً.');
     return;
   }
 
-  if (!Number.isFinite(selection.latitude) || selection.latitude < -90 || selection.latitude > 90 ||
-      !Number.isFinite(selection.longitude) || selection.longitude < -180 || selection.longitude > 180) {
-    showMapMessage('الإحداثيات المحددة غير صحيحة.');
+  selectedSiteLocation = cloneSelection(selection);
+  updateSiteLocationSummary();
+  returnToSiteModal = true;
+  mapPickerModal.hide();
+};
+
+saveSiteBtn.onclick = async () => {
+  clearSiteLocationValidation();
+
+  const id = siteId.value;
+  const name = siteName.value.trim();
+  const radius = Number(siteRadius.value);
+  const accuracy = Number(siteAccuracy.value);
+
+  if (!name) {
+    alert('من فضلك أدخل اسم الموقع.');
+    return;
+  }
+
+  if (!selectedSiteLocation) {
+    showSiteLocationValidation('من فضلك حدد موقع العمل من نافذة الخريطة أولاً.');
+    return;
+  }
+
+  if (
+    !Number.isFinite(selectedSiteLocation.latitude) ||
+    selectedSiteLocation.latitude < -90 ||
+    selectedSiteLocation.latitude > 90 ||
+    !Number.isFinite(selectedSiteLocation.longitude) ||
+    selectedSiteLocation.longitude < -180 ||
+    selectedSiteLocation.longitude > 180
+  ) {
+    showSiteLocationValidation('الإحداثيات المحددة غير صحيحة.');
     return;
   }
 
@@ -176,8 +261,8 @@ saveSiteBtn.onclick = async () => {
   const body = {
     name,
     description: siteDescription.value.trim() || null,
-    latitude: selection.latitude,
-    longitude: selection.longitude,
+    latitude: selectedSiteLocation.latitude,
+    longitude: selectedSiteLocation.longitude,
     allowedRadiusMeters: radius,
     maxAllowedAccuracyMeters: accuracy,
     isActive: siteActive.checked
@@ -192,13 +277,14 @@ saveSiteBtn.onclick = async () => {
       }
     );
 
-    bootstrap.Modal.getInstance(siteModalElement)?.hide();
-    pendingMapSelection = null;
+    siteModal.hide();
+    selectedSiteLocation = null;
+    mapDraftSelection = null;
     await loadSites();
   } catch (error) {
     console.error(error);
     const message = error?.data?.message || 'تعذر حفظ موقع العمل.';
-    showMapMessage(message);
+    showSiteLocationValidation(message);
   }
 };
 
