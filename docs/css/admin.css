@@ -37,3 +37,8 @@ body{margin:0;background:#f5f7fb;font-family:Tahoma,Arial,sans-serif}.admin-shel
   .map-tip{right:8px;top:8px;font-size:.72rem}
   #siteModal .modal-body,.map-picker-body{padding:14px}
 }
+
+#siteMap .leaflet-control-layers{direction:rtl;text-align:right;border:0;border-radius:10px;box-shadow:0 4px 14px rgba(16,24,40,.14)}
+#siteMap .leaflet-control-layers-expanded{padding:8px 10px}
+#siteMap .leaflet-control-scale-line{direction:ltr}
+#siteMap .leaflet-tile-container img{will-change:transform}
