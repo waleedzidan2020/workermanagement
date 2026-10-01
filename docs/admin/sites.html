@@ -1,1 +1,187 @@
-<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مواقع العمل</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynHTyC8x5R2dwrv8fYwGUozB7e00=" crossorigin=""><link rel="stylesheet" href="../css/admin.css"></head><body><div class="admin-shell"><aside class="sidebar" id="sidebar"><div class="sidebar-brand">نظام الحضور</div><nav class="nav flex-column gap-1"><a class="nav-link" href="dashboard.html">لوحة التحكم</a><a class="nav-link" href="employees.html">العمال</a><a class="nav-link" href="sites.html">مواقع العمل</a><a class="nav-link" href="attendance.html">الحضور</a><a class="nav-link" href="rejected-attempts.html">المحاولات المرفوضة</a><a class="nav-link" href="reports.html">التقارير</a><button class="btn btn-outline-light mt-3" id="logoutBtn">تسجيل الخروج</button></nav></aside><section class="admin-content"><header class="admin-topbar"><button class="btn btn-outline-secondary d-lg-none" id="menuBtn">☰</button><h1 class="h5 m-0">مواقع العمل</h1></header><main class="p-3 p-lg-4"><div class="d-flex justify-content-end mb-3"><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal" id="addSiteBtn">إضافة موقع</button></div><div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>الموقع</th><th>Latitude</th><th>Longitude</th><th>النطاق</th><th>أقصى دقة</th><th>الحالة</th><th></th></tr></thead><tbody id="sitesBody"></tbody></table></div></div></main></section></div><div class="modal fade" id="siteModal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">بيانات الموقع</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="siteId"><div class="mb-2"><label class="form-label">اسم الموقع</label><input id="siteName" class="form-control"></div><div class="mb-2"><label class="form-label">الوصف</label><textarea id="siteDescription" class="form-control"></textarea></div><section class="site-location-picker mb-4"><div class="site-location-header"><div><div class="site-location-title">تحديد موقع العمل</div><div class="site-location-help">اضغط على أي نقطة في الخريطة لتحديد الموقع، ويمكنك سحب العلامة لتعديل المكان.</div></div><button type="button" class="btn btn-primary btn-sm use-location-btn" id="useCurrentLocationBtn"><span class="location-btn-icon" aria-hidden="true">◎</span><span>استخدام موقعي الحالي</span></button></div><div id="siteMapError" class="alert alert-danger py-2 mt-3 mb-0 d-none" role="alert"></div><div class="site-map-frame mt-3"><div id="siteMap" aria-label="خريطة تحديد موقع العمل"></div><div class="map-tip"><span class="map-tip-dot"></span>اضغط على الخريطة لاختيار الموقع</div></div><div class="selected-coordinates"><div class="coordinate-card"><span class="coordinate-label">خط العرض</span><strong id="selectedLatText">--</strong></div><div class="coordinate-card"><span class="coordinate-label">خط الطول</span><strong id="selectedLngText">--</strong></div></div></section><div class="row g-3"><div class="col-md-6"><label class="form-label">نطاق الحضور المسموح (متر)</label><input id="siteRadius" class="form-control" type="number" value="100" min="1"></div><div class="col-md-6"><label class="form-label">أقصى دقة GPS مسموحة (متر)</label><input id="siteAccuracy" class="form-control" type="number" value="50" min="1"></div></div><div class="form-check mt-3"><input id="siteActive" class="form-check-input" type="checkbox" checked><label class="form-check-label">نشط</label></div></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button><button class="btn btn-primary" id="saveSiteBtn">حفظ</button></div></div></div></div><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><script src="../js/api.js"></script><script src="../js/admin-common.js"></script><script src="../js/site-map.js"></script><script src="../js/sites.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>مواقع العمل</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynHTyC8x5R2dwrv8fYwGUozB7e00=" crossorigin="">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">نظام الحضور</div>
+      <nav class="nav flex-column gap-1">
+        <a class="nav-link" href="dashboard.html">لوحة التحكم</a>
+        <a class="nav-link" href="employees.html">العمال</a>
+        <a class="nav-link" href="sites.html">مواقع العمل</a>
+        <a class="nav-link" href="attendance.html">الحضور</a>
+        <a class="nav-link" href="rejected-attempts.html">المحاولات المرفوضة</a>
+        <a class="nav-link" href="reports.html">التقارير</a>
+        <button class="btn btn-outline-light mt-3" id="logoutBtn">تسجيل الخروج</button>
+      </nav>
+    </aside>
+
+    <section class="admin-content">
+      <header class="admin-topbar">
+        <button class="btn btn-outline-secondary d-lg-none" id="menuBtn">☰</button>
+        <h1 class="h5 m-0">مواقع العمل</h1>
+      </header>
+
+      <main class="p-3 p-lg-4">
+        <div class="d-flex justify-content-end mb-3">
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#siteModal" id="addSiteBtn">إضافة موقع</button>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>الموقع</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>النطاق</th>
+                  <th>أقصى دقة</th>
+                  <th>الحالة</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="sitesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <!-- Work site data modal -->
+  <div class="modal fade" id="siteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">بيانات الموقع</h5>
+          <button class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="siteId">
+
+          <div class="mb-3">
+            <label class="form-label">اسم الموقع</label>
+            <input id="siteName" class="form-control">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">الوصف</label>
+            <textarea id="siteDescription" class="form-control" rows="3"></textarea>
+          </div>
+
+          <section class="location-summary-card mb-3">
+            <div class="location-summary-content">
+              <div>
+                <div class="location-summary-title">موقع العمل على الخريطة</div>
+                <div class="location-summary-help">افتح نافذة الخريطة وحدد المكان، وسيتم حفظ خط العرض والطول تلقائيًا.</div>
+              </div>
+              <button type="button" class="btn btn-primary location-picker-open-btn" id="openMapPickerBtn">
+                <span aria-hidden="true">⌖</span>
+                <span id="openMapPickerText">تحديد الموقع على الخريطة</span>
+              </button>
+            </div>
+
+            <div id="siteLocationValidation" class="alert alert-danger py-2 mt-3 mb-0 d-none" role="alert"></div>
+
+            <div class="location-summary-coordinates mt-3">
+              <div class="coordinate-card">
+                <span class="coordinate-label">خط العرض</span>
+                <strong id="selectedLatText">--</strong>
+              </div>
+              <div class="coordinate-card">
+                <span class="coordinate-label">خط الطول</span>
+                <strong id="selectedLngText">--</strong>
+              </div>
+            </div>
+          </section>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">نطاق الحضور المسموح (متر)</label>
+              <input id="siteRadius" class="form-control" type="number" value="100" min="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">أقصى دقة GPS مسموحة (متر)</label>
+              <input id="siteAccuracy" class="form-control" type="number" value="50" min="1">
+            </div>
+          </div>
+
+          <div class="form-check mt-3">
+            <input id="siteActive" class="form-check-input" type="checkbox" checked>
+            <label class="form-check-label" for="siteActive">نشط</label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button class="btn btn-primary" id="saveSiteBtn">حفظ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Separate map picker modal -->
+  <div class="modal fade" id="mapPickerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered map-picker-dialog">
+      <div class="modal-content map-picker-content">
+        <div class="modal-header map-picker-header">
+          <div>
+            <h5 class="modal-title mb-1">تحديد موقع العمل</h5>
+            <div class="text-muted small">اضغط على الخريطة أو اسحب العلامة حتى تصل للمكان المطلوب.</div>
+          </div>
+          <button class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+        </div>
+
+        <div class="modal-body map-picker-body">
+          <div class="map-picker-toolbar">
+            <button type="button" class="btn btn-outline-primary btn-sm use-location-btn" id="useCurrentLocationBtn">
+              <span class="location-btn-icon" aria-hidden="true">◎</span>
+              <span>استخدام موقعي الحالي</span>
+            </button>
+            <div class="map-picker-status">حدد نقطة واحدة فقط على الخريطة</div>
+          </div>
+
+          <div id="siteMapError" class="alert alert-danger py-2 mt-3 mb-0 d-none" role="alert"></div>
+
+          <div class="site-map-frame mt-3">
+            <div id="siteMap" aria-label="خريطة تحديد موقع العمل"></div>
+            <div class="map-tip"><span class="map-tip-dot"></span>اضغط لاختيار الموقع</div>
+          </div>
+
+          <div class="selected-coordinates">
+            <div class="coordinate-card">
+              <span class="coordinate-label">خط العرض</span>
+              <strong id="mapSelectedLatText">--</strong>
+            </div>
+            <div class="coordinate-card">
+              <span class="coordinate-label">خط الطول</span>
+              <strong id="mapSelectedLngText">--</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer map-picker-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">رجوع</button>
+          <button class="btn btn-primary px-4" id="confirmMapSelectionBtn">اعتماد الموقع</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin-common.js"></script>
+  <script src="../js/site-map.js"></script>
+  <script src="../js/sites.js"></script>
+</body>
+</html>
