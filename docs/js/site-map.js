@@ -1,6 +1,7 @@
 (function () {
-  const DEFAULT_CENTER = [24.0889, 32.8998];
-  const DEFAULT_ZOOM = 14;
+  const DEFAULT_CENTER = [32.8998, 24.0889]; // [longitude, latitude]
+  const DEFAULT_ZOOM = 13.5;
+  const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
   let map = null;
   let marker = null;
@@ -22,127 +23,6 @@
     }
   }
 
-  function osmUrl(coords) {
-    return `https://tile.openstreetmap.org/${coords.z}/${coords.x}/${coords.y}.png`;
-  }
-
-  function osmDeUrl(coords) {
-    return `https://tile.openstreetmap.de/${coords.z}/${coords.x}/${coords.y}.png`;
-  }
-
-  function hotUrl(coords) {
-    return `https://a.tile.openstreetmap.fr/hot/${coords.z}/${coords.x}/${coords.y}.png`;
-  }
-
-  function esriImageryUrl(coords) {
-    return `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
-  }
-
-  function esriImageryBackupUrl(coords) {
-    return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
-  }
-
-  const FallbackTileLayer = L.TileLayer.extend({
-    initialize: function (urlFactory, options) {
-      this._urlFactory = urlFactory;
-      L.TileLayer.prototype.initialize.call(this, '', options);
-    },
-
-    createTile: function (coords, done) {
-      const tile = document.createElement('img');
-      tile.alt = '';
-      tile.setAttribute('role', 'presentation');
-      tile.decoding = 'async';
-
-      const sources = this._urlFactory(coords);
-      let index = 0;
-      let completed = false;
-
-      const finish = function (error) {
-        if (completed) return;
-        completed = true;
-        done(error || null, tile);
-      };
-
-      tile.onload = function () {
-        finish(null);
-      };
-
-      tile.onerror = function () {
-        index += 1;
-
-        if (index < sources.length) {
-          tile.src = sources[index];
-          return;
-        }
-
-        finish(new Error('MAP_TILE_LOAD_FAILED'));
-      };
-
-      tile.src = sources[index];
-      return tile;
-    }
-  });
-
-  function createBaseLayers() {
-    const resilientStreetMap = new FallbackTileLayer(
-      function (coords) {
-        return [
-          osmUrl(coords),
-          osmDeUrl(coords),
-          hotUrl(coords)
-        ];
-      },
-      {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-        keepBuffer: 8,
-        updateWhenIdle: false,
-        updateWhenZooming: true,
-        detectRetina: false
-      }
-    );
-
-    const esriStreetMap = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 19,
-        attribution: 'Tiles &copy; Esri',
-        keepBuffer: 8,
-        updateWhenIdle: false,
-        updateWhenZooming: true
-      }
-    );
-
-    const resilientSatellite = new FallbackTileLayer(
-      function (coords) {
-        return [
-          esriImageryUrl(coords),
-          esriImageryBackupUrl(coords),
-          osmUrl(coords),
-          osmDeUrl(coords)
-        ];
-      },
-      {
-        maxZoom: 19,
-        attribution: 'Imagery &copy; Esri; fallback &copy; OpenStreetMap contributors',
-        keepBuffer: 8,
-        updateWhenIdle: false,
-        updateWhenZooming: true,
-        detectRetina: false
-      }
-    );
-
-    return {
-      defaultLayer: resilientStreetMap,
-      choices: {
-        'OpenStreetMap — أساسي': resilientStreetMap,
-        'شوارع Esri': esriStreetMap,
-        'قمر صناعي': resilientSatellite
-      }
-    };
-  }
-
   function attachResizeHandling(container) {
     if (!window.ResizeObserver || resizeObserver) {
       return;
@@ -152,7 +32,7 @@
       if (!map) return;
 
       requestAnimationFrame(function () {
-        map.invalidateSize({ pan: false, animate: false });
+        map.resize();
       });
     });
 
@@ -166,8 +46,8 @@
       return map;
     }
 
-    if (!window.L) {
-      throw new Error('LEAFLET_UNAVAILABLE');
+    if (!window.maplibregl) {
+      throw new Error('MAPLIBRE_UNAVAILABLE');
     }
 
     const container = document.getElementById(containerId);
@@ -175,33 +55,44 @@
       throw new Error('MAP_CONTAINER_MISSING');
     }
 
-    map = L.map(container, {
-      zoomControl: true,
-      preferCanvas: true,
-      zoomAnimation: false,
-      fadeAnimation: false,
-      markerZoomAnimation: false
-    }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-
-    const layers = createBaseLayers();
-    layers.defaultLayer.addTo(map);
-
-    L.control.layers(layers.choices, null, {
-      position: 'topleft',
-      collapsed: true
-    }).addTo(map);
-
-    L.control.scale({
-      position: 'bottomleft',
-      imperial: false
-    }).addTo(map);
-
-    map.on('click', function (event) {
-      setSelection(event.latlng.lat, event.latlng.lng, true);
+    map = new maplibregl.Map({
+      container: containerId,
+      style: MAP_STYLE,
+      center: DEFAULT_CENTER,
+      zoom: DEFAULT_ZOOM,
+      attributionControl: true,
+      cooperativeGestures: false,
+      renderWorldCopies: false
     });
 
-    map.on('baselayerchange', function () {
+    map.addControl(
+      new maplibregl.NavigationControl({
+        showCompass: false,
+        visualizePitch: false
+      }),
+      'top-left'
+    );
+
+    map.addControl(
+      new maplibregl.ScaleControl({
+        maxWidth: 120,
+        unit: 'metric'
+      }),
+      'bottom-left'
+    );
+
+    map.on('click', function (event) {
+      setSelection(event.lngLat.lat, event.lngLat.lng, true);
+    });
+
+    map.on('load', function () {
       invalidateSize();
+    });
+
+    map.on('error', function (event) {
+      // MapLibre may emit transient resource errors while retrying.
+      // Keep the picker usable and log details for diagnostics.
+      console.warn('Map resource warning:', event?.error || event);
     });
 
     attachResizeHandling(container);
@@ -221,22 +112,24 @@
 
     if (map) {
       if (!marker) {
-        marker = L.marker([lat, lng], {
-          draggable: true,
-          autoPan: true
-        }).addTo(map);
+        marker = new maplibregl.Marker({
+          draggable: true
+        })
+          .setLngLat([lng, lat])
+          .addTo(map);
 
         marker.on('dragend', function () {
-          const point = marker.getLatLng();
+          const point = marker.getLngLat();
           setSelection(point.lat, point.lng, false);
         });
       } else {
-        marker.setLatLng([lat, lng]);
+        marker.setLngLat([lng, lat]);
       }
 
       if (centerMap) {
-        map.setView([lat, lng], Math.max(map.getZoom(), 17), {
-          animate: false
+        map.jumpTo({
+          center: [lng, lat],
+          zoom: Math.max(map.getZoom(), 16.5)
         });
       }
     }
@@ -248,13 +141,16 @@
     selectedLatitude = null;
     selectedLongitude = null;
 
-    if (map && marker) {
-      map.removeLayer(marker);
+    if (marker) {
+      marker.remove();
       marker = null;
     }
 
     if (map) {
-      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM, { animate: false });
+      map.jumpTo({
+        center: DEFAULT_CENTER,
+        zoom: DEFAULT_ZOOM
+      });
     }
 
     notify();
@@ -274,10 +170,10 @@
   function invalidateSize() {
     if (!map) return;
 
-    [0, 100, 250, 500, 900].forEach(function (delay) {
+    [0, 80, 180, 350, 700].forEach(function (delay) {
       setTimeout(function () {
         if (!map) return;
-        map.invalidateSize({ pan: false, animate: false });
+        map.resize();
       }, delay);
     });
   }
