@@ -1,30 +1,39 @@
 body{margin:0;background:#f5f7fb;font-family:Tahoma,Arial,sans-serif}.admin-shell{display:flex;min-height:100vh}.sidebar{width:250px;background:#111827;color:#fff;padding:22px 16px;position:fixed;inset-block:0;right:0;z-index:30}.sidebar-brand{font-size:1.25rem;font-weight:700;margin-bottom:24px}.sidebar .nav-link{color:#d1d5db;border-radius:10px;padding:10px 12px}.sidebar .nav-link:hover{background:#1f2937;color:white}.admin-content{margin-right:250px;flex:1;min-width:0}.admin-topbar{height:64px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;padding:0 20px;position:sticky;top:0;z-index:20}.stat-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(16,24,40,.06);height:100%}.stat-value{font-size:1.75rem;font-weight:700}.stat-label{color:#667085;margin-top:4px}@media(max-width:991px){.sidebar{transform:translateX(110%);transition:.2s}.sidebar.open{transform:translateX(0)}.admin-content{margin-right:0}}
 
-.site-location-picker{background:#f8fafc;border:1px solid #e4e7ec;border-radius:16px;padding:16px}
-.site-location-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
-.site-location-title{font-size:1rem;font-weight:700;color:#101828}
-.site-location-help{font-size:.875rem;color:#667085;margin-top:4px;line-height:1.6}
-.use-location-btn{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:10px;padding:8px 12px}
-.location-btn-icon{font-size:1.1rem;line-height:1}
-.site-map-frame{position:relative;border:1px solid #d0d5dd;border-radius:14px;overflow:hidden;background:#e9eef5;box-shadow:0 1px 2px rgba(16,24,40,.04)}
-#siteMap{height:430px;width:100%;background:#eef2f6;direction:ltr}
+.location-summary-card{background:#f8fafc;border:1px solid #e4e7ec;border-radius:16px;padding:16px}
+.location-summary-content{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.location-summary-title{font-size:1rem;font-weight:700;color:#101828}
+.location-summary-help{font-size:.875rem;color:#667085;margin-top:4px;line-height:1.6}
+.location-picker-open-btn,.use-location-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;border-radius:10px}
+.location-summary-coordinates,.selected-coordinates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.coordinate-card{background:#fff;border:1px solid #eaecf0;border-radius:12px;padding:11px 13px;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.coordinate-label{font-size:.82rem;color:#667085}
+.coordinate-card strong{direction:ltr;unicode-bidi:isolate;font-size:.9rem;color:#101828;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;overflow:hidden;text-overflow:ellipsis}
+.map-picker-dialog{max-width:min(1180px,96vw)}
+.map-picker-content{border:0;border-radius:18px;overflow:hidden;box-shadow:0 24px 70px rgba(16,24,40,.2)}
+.map-picker-header{padding:16px 20px;border-bottom:1px solid #eaecf0}
+.map-picker-body{padding:18px 20px;background:#f8fafc}
+.map-picker-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.map-picker-status{font-size:.84rem;color:#667085}
+.site-map-frame{position:relative;border:1px solid #d0d5dd;border-radius:16px;overflow:hidden;background:#e9eef5;box-shadow:0 2px 8px rgba(16,24,40,.06)}
+#siteMap{height:min(64vh,620px);min-height:430px;width:100%;background:#eef2f6;direction:ltr}
 #siteMap .leaflet-control-container,#siteMap .leaflet-control-attribution{direction:ltr;text-align:left}
 .map-tip{position:absolute;z-index:500;right:12px;top:12px;background:rgba(17,24,39,.88);color:#fff;border-radius:999px;padding:7px 11px;font-size:.78rem;display:flex;align-items:center;gap:7px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.12)}
 .map-tip-dot{width:7px;height:7px;border-radius:50%;background:#fff;display:inline-block}
-.selected-coordinates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
-.coordinate-card{background:#fff;border:1px solid #eaecf0;border-radius:12px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.coordinate-label{font-size:.82rem;color:#667085}
-.coordinate-card strong{direction:ltr;unicode-bidi:isolate;font-size:.9rem;color:#101828;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+.selected-coordinates{margin-top:12px}
+.location-btn-icon{font-size:1.1rem;line-height:1}
 .leaflet-container{font-family:Tahoma,Arial,sans-serif}
 #siteModal .modal-content{border:0;border-radius:18px;overflow:hidden}
-#siteModal .modal-header{border-bottom:1px solid #eaecf0;padding:16px 20px}
+#siteModal .modal-header,#siteModal .modal-footer{border-color:#eaecf0}
 #siteModal .modal-body{padding:20px}
-#siteModal .modal-footer{border-top:1px solid #eaecf0;padding:14px 20px}
+.map-picker-footer{border-top:1px solid #eaecf0;padding:14px 20px;background:#fff}
 @media(max-width:767px){
-  .site-location-header{align-items:stretch;flex-direction:column}
-  .use-location-btn{justify-content:center;width:100%}
-  #siteMap{height:340px}
-  .selected-coordinates{grid-template-columns:1fr}
+  .location-summary-content{align-items:stretch;flex-direction:column}
+  .location-picker-open-btn,.use-location-btn{width:100%}
+  .map-picker-dialog{max-width:none;margin:.5rem}
+  .map-picker-toolbar{align-items:stretch;flex-direction:column}
+  #siteMap{height:56vh;min-height:360px}
+  .location-summary-coordinates,.selected-coordinates{grid-template-columns:1fr}
   .map-tip{right:8px;top:8px;font-size:.72rem}
-  #siteModal .modal-body{padding:14px}
+  #siteModal .modal-body,.map-picker-body{padding:14px}
 }
