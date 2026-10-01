@@ -1,12 +1,27 @@
 let sites = [];
 let selectedSiteLocation = null;
 let mapDraftSelection = null;
-let returnToSiteModal = false;
+let isSwitchingToMap = false;
+let isReturningToSite = false;
 
 const siteModalElement = document.getElementById('siteModal');
 const mapPickerModalElement = document.getElementById('mapPickerModal');
 const siteModal = bootstrap.Modal.getOrCreateInstance(siteModalElement);
 const mapPickerModal = bootstrap.Modal.getOrCreateInstance(mapPickerModalElement);
+
+const sitesBodyElement = document.getElementById('sitesBody');
+const addSiteButton = document.getElementById('addSiteBtn');
+const saveSiteButton = document.getElementById('saveSiteBtn');
+const openMapPickerButton = document.getElementById('openMapPickerBtn');
+const useCurrentLocationButton = document.getElementById('useCurrentLocationBtn');
+const confirmMapSelectionButton = document.getElementById('confirmMapSelectionBtn');
+
+const siteIdInput = document.getElementById('siteId');
+const siteNameInput = document.getElementById('siteName');
+const siteDescriptionInput = document.getElementById('siteDescription');
+const siteRadiusInput = document.getElementById('siteRadius');
+const siteAccuracyInput = document.getElementById('siteAccuracy');
+const siteActiveInput = document.getElementById('siteActive');
 
 const mapError = document.getElementById('siteMapError');
 const siteLocationValidation = document.getElementById('siteLocationValidation');
@@ -17,10 +32,12 @@ const mapSelectedLngText = document.getElementById('mapSelectedLngText');
 const openMapPickerText = document.getElementById('openMapPickerText');
 
 function cloneSelection(selection) {
-  return selection ? {
-    latitude: Number(selection.latitude),
-    longitude: Number(selection.longitude)
-  } : null;
+  return selection
+    ? {
+        latitude: Number(selection.latitude),
+        longitude: Number(selection.longitude)
+      }
+    : null;
 }
 
 function showMapMessage(message, type = 'danger') {
@@ -63,8 +80,13 @@ function updateSiteLocationSummary() {
 }
 
 function updateMapDraftDisplay(selection) {
-  mapSelectedLatText.textContent = selection ? selection.latitude.toFixed(7) : '--';
-  mapSelectedLngText.textContent = selection ? selection.longitude.toFixed(7) : '--';
+  mapSelectedLatText.textContent = selection
+    ? selection.latitude.toFixed(7)
+    : '--';
+
+  mapSelectedLngText.textContent = selection
+    ? selection.longitude.toFixed(7)
+    : '--';
 }
 
 function initializeMapPicker() {
@@ -83,23 +105,58 @@ function initializeMapPicker() {
       SiteMapPicker.clearSelection();
     }
 
+    // Leaflet is inside a Bootstrap modal. Recalculate once immediately
+    // and once after the modal transition has fully painted.
     SiteMapPicker.invalidateSize();
+    setTimeout(() => SiteMapPicker.invalidateSize(), 250);
   } catch (error) {
-    console.error(error);
+    console.error('Map initialization failed:', error);
     showMapMessage('تعذر تحميل الخريطة. تحقق من اتصال الإنترنت ثم أعد المحاولة.');
   }
 }
 
 function openMapPicker() {
+  if (isSwitchingToMap || mapPickerModalElement.classList.contains('show')) {
+    return;
+  }
+
   mapDraftSelection = cloneSelection(selectedSiteLocation);
-  returnToSiteModal = true;
   clearMapMessage();
+  updateMapDraftDisplay(mapDraftSelection);
+  isSwitchingToMap = true;
 
-  siteModalElement.addEventListener('hidden.bs.modal', () => {
-    mapPickerModal.show();
-  }, { once: true });
+  const openAfterSiteClosed = () => {
+    siteModalElement.removeEventListener('hidden.bs.modal', openAfterSiteClosed);
 
+    // Let Bootstrap finish removing the first backdrop before opening
+    // the second modal. This avoids a stuck backdrop / non-opening modal.
+    setTimeout(() => {
+      try {
+        mapPickerModal.show();
+      } finally {
+        isSwitchingToMap = false;
+      }
+    }, 80);
+  };
+
+  siteModalElement.addEventListener('hidden.bs.modal', openAfterSiteClosed);
   siteModal.hide();
+}
+
+function returnToSiteModal() {
+  if (isReturningToSite || siteModalElement.classList.contains('show')) {
+    return;
+  }
+
+  isReturningToSite = true;
+
+  setTimeout(() => {
+    try {
+      siteModal.show();
+    } finally {
+      isReturningToSite = false;
+    }
+  }, 80);
 }
 
 async function loadSites() {
@@ -107,7 +164,7 @@ async function loadSites() {
     const r = await apiRequest('/api/admin/sites?page=1&pageSize=100');
     sites = r.data?.items || r.data || [];
 
-    sitesBody.innerHTML = sites.map(x => `
+    sitesBodyElement.innerHTML = sites.map(x => `
       <tr>
         <td>${esc(x.name)}</td>
         <td>${x.latitude}</td>
@@ -131,12 +188,12 @@ window.editSite = id => {
   const x = sites.find(s => s.id === id);
   if (!x) return;
 
-  siteId.value = x.id;
-  siteName.value = x.name;
-  siteDescription.value = x.description || '';
-  siteRadius.value = x.allowedRadiusMeters;
-  siteAccuracy.value = x.maxAllowedAccuracyMeters;
-  siteActive.checked = x.isActive;
+  siteIdInput.value = x.id;
+  siteNameInput.value = x.name;
+  siteDescriptionInput.value = x.description || '';
+  siteRadiusInput.value = x.allowedRadiusMeters;
+  siteAccuracyInput.value = x.maxAllowedAccuracyMeters;
+  siteActiveInput.checked = x.isActive;
 
   selectedSiteLocation = {
     latitude: Number(x.latitude),
@@ -159,32 +216,29 @@ window.disableSite = async id => {
   }
 };
 
-addSiteBtn.onclick = () => {
-  siteId.value = '';
-  siteName.value = '';
-  siteDescription.value = '';
-  siteRadius.value = 100;
-  siteAccuracy.value = 50;
-  siteActive.checked = true;
+addSiteButton.addEventListener('click', () => {
+  siteIdInput.value = '';
+  siteNameInput.value = '';
+  siteDescriptionInput.value = '';
+  siteRadiusInput.value = 100;
+  siteAccuracyInput.value = 50;
+  siteActiveInput.checked = true;
 
   selectedSiteLocation = null;
   mapDraftSelection = null;
   clearSiteLocationValidation();
   updateSiteLocationSummary();
-};
+});
 
-document.getElementById('openMapPickerBtn').onclick = openMapPicker;
+openMapPickerButton.addEventListener('click', openMapPicker);
 
 mapPickerModalElement.addEventListener('shown.bs.modal', initializeMapPicker);
 
 mapPickerModalElement.addEventListener('hidden.bs.modal', () => {
-  if (!returnToSiteModal) return;
-
-  returnToSiteModal = false;
-  siteModal.show();
+  returnToSiteModal();
 });
 
-document.getElementById('useCurrentLocationBtn').onclick = () => {
+useCurrentLocationButton.addEventListener('click', () => {
   clearMapMessage();
 
   try {
@@ -207,9 +261,9 @@ document.getElementById('useCurrentLocationBtn').onclick = () => {
     console.error(error);
     showMapMessage('تعذر تحميل الخريطة.');
   }
-};
+});
 
-document.getElementById('confirmMapSelectionBtn').onclick = () => {
+confirmMapSelectionButton.addEventListener('click', () => {
   const selection = SiteMapPicker.getSelection();
 
   if (!selection) {
@@ -218,18 +272,18 @@ document.getElementById('confirmMapSelectionBtn').onclick = () => {
   }
 
   selectedSiteLocation = cloneSelection(selection);
+  mapDraftSelection = cloneSelection(selection);
   updateSiteLocationSummary();
-  returnToSiteModal = true;
   mapPickerModal.hide();
-};
+});
 
-saveSiteBtn.onclick = async () => {
+saveSiteButton.addEventListener('click', async () => {
   clearSiteLocationValidation();
 
-  const id = siteId.value;
-  const name = siteName.value.trim();
-  const radius = Number(siteRadius.value);
-  const accuracy = Number(siteAccuracy.value);
+  const id = siteIdInput.value;
+  const name = siteNameInput.value.trim();
+  const radius = Number(siteRadiusInput.value);
+  const accuracy = Number(siteAccuracyInput.value);
 
   if (!name) {
     alert('من فضلك أدخل اسم الموقع.');
@@ -253,19 +307,24 @@ saveSiteBtn.onclick = async () => {
     return;
   }
 
-  if (!Number.isFinite(radius) || radius < 1 || !Number.isFinite(accuracy) || accuracy < 1) {
+  if (
+    !Number.isFinite(radius) ||
+    radius < 1 ||
+    !Number.isFinite(accuracy) ||
+    accuracy < 1
+  ) {
     alert('من فضلك أدخل قيم صحيحة للنطاق ودقة GPS.');
     return;
   }
 
   const body = {
     name,
-    description: siteDescription.value.trim() || null,
+    description: siteDescriptionInput.value.trim() || null,
     latitude: selectedSiteLocation.latitude,
     longitude: selectedSiteLocation.longitude,
     allowedRadiusMeters: radius,
     maxAllowedAccuracyMeters: accuracy,
-    isActive: siteActive.checked
+    isActive: siteActiveInput.checked
   };
 
   try {
@@ -286,6 +345,6 @@ saveSiteBtn.onclick = async () => {
     const message = error?.data?.message || 'تعذر حفظ موقع العمل.';
     showSiteLocationValidation(message);
   }
-};
+});
 
 loadSites();
