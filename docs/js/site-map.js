@@ -22,38 +22,45 @@
     }
   }
 
-  function cartoUrl(coords) {
-    const subs = ['a', 'b', 'c', 'd'];
-    const sub = subs[Math.abs(coords.x + coords.y) % subs.length];
-    return `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${coords.z}/${coords.x}/${coords.y}.png`;
+  function osmUrl(coords) {
+    return `https://tile.openstreetmap.org/${coords.z}/${coords.x}/${coords.y}.png`;
   }
 
-  function esriPrimaryUrl(coords) {
+  function osmDeUrl(coords) {
+    return `https://tile.openstreetmap.de/${coords.z}/${coords.x}/${coords.y}.png`;
+  }
+
+  function hotUrl(coords) {
+    return `https://a.tile.openstreetmap.fr/hot/${coords.z}/${coords.x}/${coords.y}.png`;
+  }
+
+  function esriImageryUrl(coords) {
     return `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
   }
 
-  function esriSecondaryUrl(coords) {
+  function esriImageryBackupUrl(coords) {
     return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${coords.z}/${coords.y}/${coords.x}`;
   }
 
-  const ResilientSatelliteLayer = L.TileLayer.extend({
+  const FallbackTileLayer = L.TileLayer.extend({
+    initialize: function (urlFactory, options) {
+      this._urlFactory = urlFactory;
+      L.TileLayer.prototype.initialize.call(this, '', options);
+    },
+
     createTile: function (coords, done) {
       const tile = document.createElement('img');
       tile.alt = '';
       tile.setAttribute('role', 'presentation');
+      tile.decoding = 'async';
 
-      const sources = [
-        esriPrimaryUrl(coords),
-        esriSecondaryUrl(coords),
-        cartoUrl(coords)
-      ];
-
-      let sourceIndex = 0;
-      let finished = false;
+      const sources = this._urlFactory(coords);
+      let index = 0;
+      let completed = false;
 
       const finish = function (error) {
-        if (finished) return;
-        finished = true;
+        if (completed) return;
+        completed = true;
         done(error || null, tile);
       };
 
@@ -62,88 +69,76 @@
       };
 
       tile.onerror = function () {
-        sourceIndex += 1;
+        index += 1;
 
-        if (sourceIndex < sources.length) {
-          tile.src = sources[sourceIndex];
+        if (index < sources.length) {
+          tile.src = sources[index];
           return;
         }
 
         finish(new Error('MAP_TILE_LOAD_FAILED'));
       };
 
-      tile.src = sources[sourceIndex];
+      tile.src = sources[index];
       return tile;
     }
   });
 
   function createBaseLayers() {
-    const voyager = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      {
-        subdomains: 'abcd',
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        keepBuffer: 6,
-        updateWhenIdle: false,
-        updateWhenZooming: true
-      }
-    );
-
-    const openStreetMap = L.tileLayer(
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    const resilientStreetMap = new FallbackTileLayer(
+      function (coords) {
+        return [
+          osmUrl(coords),
+          osmDeUrl(coords),
+          hotUrl(coords)
+        ];
+      },
       {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
-        keepBuffer: 6,
+        keepBuffer: 8,
         updateWhenIdle: false,
-        updateWhenZooming: true
+        updateWhenZooming: true,
+        detectRetina: false
       }
     );
 
-    const esriStreets = L.tileLayer(
+    const esriStreetMap = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
       {
         maxZoom: 19,
         attribution: 'Tiles &copy; Esri',
-        keepBuffer: 6,
+        keepBuffer: 8,
         updateWhenIdle: false,
         updateWhenZooming: true
       }
     );
 
-    const satellite = new ResilientSatelliteLayer('', {
-      maxZoom: 19,
-      attribution: 'Imagery &copy; Esri; fallback &copy; OpenStreetMap contributors &copy; CARTO',
-      keepBuffer: 6,
-      updateWhenIdle: false,
-      updateWhenZooming: true
-    });
-
-    const satelliteLabels = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png',
+    const resilientSatellite = new FallbackTileLayer(
+      function (coords) {
+        return [
+          esriImageryUrl(coords),
+          esriImageryBackupUrl(coords),
+          osmUrl(coords),
+          osmDeUrl(coords)
+        ];
+      },
       {
-        subdomains: 'abcd',
-        maxZoom: 20,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        pane: 'overlayPane',
-        opacity: 0.9,
-        keepBuffer: 6,
-        updateWhenIdle: false
+        maxZoom: 19,
+        attribution: 'Imagery &copy; Esri; fallback &copy; OpenStreetMap contributors',
+        keepBuffer: 8,
+        updateWhenIdle: false,
+        updateWhenZooming: true,
+        detectRetina: false
       }
     );
 
-    const satelliteWithLabels = L.layerGroup([satellite, satelliteLabels]);
-
     return {
-      // Use the CDN-backed street map by default. It is more reliable for
-      // selection and avoids the checkerboard gaps seen with imagery tiles.
-      defaultLayer: voyager,
+      defaultLayer: resilientStreetMap,
       choices: {
-        'خريطة شوارع واضحة': voyager,
-        'قمر صناعي + أسماء': satelliteWithLabels,
-        'شوارع Esri': esriStreets,
-        'OpenStreetMap': openStreetMap
+        'OpenStreetMap — أساسي': resilientStreetMap,
+        'شوارع Esri': esriStreetMap,
+        'قمر صناعي': resilientSatellite
       }
     };
   }
@@ -183,7 +178,9 @@
     map = L.map(container, {
       zoomControl: true,
       preferCanvas: true,
-      zoomAnimation: false
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false
     }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
     const layers = createBaseLayers();
@@ -277,7 +274,7 @@
   function invalidateSize() {
     if (!map) return;
 
-    [0, 120, 300, 650].forEach(function (delay) {
+    [0, 100, 250, 500, 900].forEach(function (delay) {
       setTimeout(function () {
         if (!map) return;
         map.invalidateSize({ pan: false, animate: false });
